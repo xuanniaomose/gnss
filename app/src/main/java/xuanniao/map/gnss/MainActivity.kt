@@ -39,6 +39,7 @@ class MainActivity : Activity(), GnssLocationCallback,
             } else {
                 Log.d(tag, "停止定位")
                 gnssLocationService.stopLocationUpdates()
+                binding.tvDirection.text = "--"
                 binding.tvSatellite.text = "-"
             }
         }
@@ -95,13 +96,16 @@ class MainActivity : Activity(), GnssLocationCallback,
     override fun onLocationStatusChanged(status: Int) {
         when (status) {
             -1 -> {
+                isLocating = false
                 binding.btnSwitchLoc.isChecked = false
                 permission.checkLocationService()
             }
             0 -> {
+                isLocating = false
                 binding.btnSwitchLoc.isChecked = false
             }
             1 -> {
+                isLocating = true
                 binding.btnSwitchLoc.isChecked = true
             }
         }
