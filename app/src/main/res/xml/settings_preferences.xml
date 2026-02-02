@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory android:title="天地图服务配置">
+        <EditTextPreference
+                android:key="tianditu_api_key"
+                android:title="天地图密钥"
+                android:summary="点此输入从天地图官网申请的密钥"
+                android:dialogTitle="设置密钥"
+                android:inputType="text"
+                android:maxLines="1"
+                android:singleLine="true"/>
+    </PreferenceCategory>
+    <PreferenceCategory android:title="提示">
+        <Preference
+                android:title="如何获取密钥？"
+                android:summary="前往天地图官网注册并申请">
+            <intent
+                    android:action="android.intent.action.VIEW"
+                    android:data="https://www.tianditu.gov.cn" />
+        </Preference>
+    </PreferenceCategory>
+</PreferenceScreen>

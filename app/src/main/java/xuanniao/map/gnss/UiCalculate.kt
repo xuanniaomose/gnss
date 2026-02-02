@@ -34,8 +34,8 @@ fun bearingToDirection(bearing: Float): Direction {
         ((bearing + 22.5) / 45).toInt() == 8 -> Direction.NN
         else -> Direction.NA
     }
-    Log.d(tag, (bearing /45).toString())
-    Log.d(tag, " 方位: $direction")
+//    Log.d(tag, (bearing /45).toString())
+//    Log.d(tag, " 方位: $direction")
     return direction
 }
 
