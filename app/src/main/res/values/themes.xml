@@ -1,8 +1,10 @@
 <resources>
     <!-- Base application theme. -->
-    <style name="Base.Theme.Gnss" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+    <style name="Base.Theme.Gnss" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- 状态栏背景颜色 -->
+        <item name="android:statusBarColor">@color/colorPrimaryDark</item>
+        <!-- 状态栏图标颜色：true 图标黑色,false 图标白色-->
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="Theme.Gnss" parent="Base.Theme.Gnss"/>

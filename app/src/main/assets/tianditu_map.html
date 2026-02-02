@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>河南省地图</title>
+    <!-- 缓存使用的localForage库，它能极大地简化对IndexedDB的操作-->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <!-- 使用本地Leaflet CSS -->
+    <link rel="stylesheet" href="file:///android_asset/leaflet/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; }
+        #map {
+            width: 100%;
+            height: 100vh;
+            background: #f0f0f0;
+        }
+        .info-panel {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 300px;
+        }
+        .province-boundary {
+            color: #1890ff;
+            fillColor: #1890ff33;
+            weight: 3;
+            fillOpacity: 0.2;
+        }
+        #debug-info {
+            position: absolute; bottom: 10px; left: 10px;
+            background: rgba(0,0,0,0.85); color: #0f0;
+            padding: 10px; border-radius: 5px;
+            font-family: 'Courier New', monospace; font-size: 12px;
+            z-index: 10000; max-height: 200px; overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+<!-- 搜索框 -->
+<div class="search-panel" style="position: absolute; top: 10px; left: 55px; z-index: 1000; background: white; padding: 8px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);">
+    <h4 style="margin-top:0;">公交线路搜索</h4>
+    <input type="text" id="busSearchInput" placeholder="输入公交线路名或关键词" style="width: 190px; padding: 5px;">
+    <button onclick="searchBusLine()" style="padding: 3px 7px;">搜索</button>
+    <button onclick="document.getElementById('debug-info').style.display='block'" style="padding: 3px 7px;">调试</button>
+    <div id="searchResult" style="margin-top: 10px; font-size: 12px; max-width: 250px; max-height: 150px; overflow-y: auto;"></div>
+</div>
+<div class="info-panel">
+    <div id="coordinates">经纬度：--</div>
+</div>
+<div id="debug-info" style="display:none;">
+    <button onclick="estimateCacheSize()" style="padding: 3px 7px;">缓存大小</button>
+    <button onclick="clearTileCache()" style="padding: 3px 7px;">清空缓存</button>
+    <h4>调试信息 <small onclick="this.parentElement.style.display='none'">[隐藏]</small></h4>
+    <div id="debug-logs">正在初始化...</div>
+</div>
+<div id="map"></div>
+
+<!-- 使用本地Leaflet JS -->
+<script src="file:///android_asset/leaflet/leaflet.js"></script>
+<!-- 使用本地天地图插件 -->
+<script src="file:///android_asset/leaflet/leaflet-tilelayer.china.local.js"></script>
+
+<script>
+    // 全局变量需要写在图层前面
+    let map;
+    let locationMarker;
+    let accuracyCircle;
+    let polyline;
+    let locationHistory = [];
+    let isInitialized = false;
+
+    var busMarkers = [];
+    var tk = getEffectiveTiandituKey(); // 天地图密钥
+
+    initMap();
+
+    // 接收Android发送的位置更新
+    window.onLocationUpdate = function(locationData) {
+        console.log("收到位置数据:", locationData);
+
+        const lat = locationData.lat;
+        const lng = locationData.lng;
+        const accuracy = locationData.accuracy || 50;
+        const newLatLng = [lat, lng];
+
+        // 更新标记位置
+        map.removeLayer(locationMaker);
+
+        // 更新精度圆
+        map.removeLayer(accuracyCircle);
+
+        // 添加到历史轨迹
+        if (locationHistory.length > 5) {
+            map.removeLayer(polyline);
+        }
+
+        setlayer(lat, lng)
+        map.setView(newLatLng, 19);
+    };
+
+    // 地图居中到指定位置
+    window.centerOnLocation = function(lat, lng) {
+        if (map) {
+            map.setView([lat, lng], map.getZoom());
+            marker.setLatLng([lat, lng]);
+            accuracyCircle.setLatLng([lat, lng]);
+        }
+    };
+
+    // 地图缩放
+    window.zoomMap = function(delta) {
+        if (map) {
+            if (delta > 0) {
+                map.zoomIn();
+            } else {
+                map.zoomOut();
+            }
+        }
+    };
+
+    // 清除轨迹
+    window.clearTrack = function() {
+        locationHistory = [];
+        if (polyline) {
+            polyline.setLatLngs([]);
+        }
+    };
+
+    function initMap() {
+        // 河南省的边界范围（大致）
+        var henanBounds = {
+            north: 36.5,    // 安阳附近
+            south: 31.5,    // 信阳附近
+            east: 116.8,    // 商丘附近
+            west: 110.3     // 三门峡附近
+        };
+    <!--        south: 24.5,    // 湖南永州附近-->
+
+        // 计算中心点和适合的缩放级别
+        var centerLng = 114.3031;
+        var centerLat = 34.8183;
+
+        // 初始化地图，限定在河南省范围内
+        map = L.map('map', {
+            center: [centerLat, centerLng],
+            zoom: 14,
+            minZoom: 6,
+            maxZoom: 20,
+            maxBounds: [
+                [henanBounds.south - 0.5, henanBounds.west - 0.5],
+                [henanBounds.north + 0.5, henanBounds.east + 0.5]
+            ],
+            maxBoundsViscosity: 1.0  // 严格限制边界
+        });
+
+        // 添加天地图底图（矢量）
+        var baseLayer = L.tileLayer(
+            'https://t{s}.tianditu.gov.cn/DataServer?T=vec_w&x={x}&y={y}&l={z}&tk=' + tk, {
+                subdomains: ['0','1','2','3','4','5','6','7'],
+                maxZoom: 20,
+                useCache: true,
+                crossOrigin: true,
+                cacheMaxAge: 180 * 24 * 60 * 60 * 1000 // 180天
+            }
+        ).addTo(map);
+
+        // 创建并添加注记图层启用缓存
+        var annotationLayer = L.tileLayer(
+            'https://t{s}.tianditu.gov.cn/DataServer?T=cva_w&x={x}&y={y}&l={z}&tk=' + tk, {
+                subdomains: ['0','1','2','3','4','5','6','7'],
+                maxZoom: 20,
+                useCache: true,
+                crossOrigin: true,
+                cacheMaxAge: 180 * 24 * 60 * 60 * 1000 // 180天
+            }
+        ).addTo(map);
+        console.log('底图与注记图层已添加到地图。');
+
+        // 显示点击位置的坐标
+        var coordsDisplay = document.getElementById('coordinates');
+        map.on('mousemove', function(e) {
+            coordsDisplay.innerHTML = "经纬度: " +
+                e.latlng.lng.toFixed(6) + "°, " +
+                e.latlng.lat.toFixed(6) + "°";
+        });
+
+        // 添加比例尺控件
+        L.control.scale({imperial: false}).addTo(map);
+
+        // 添加图层控制（可切换注记）（这段有问题）
+        //var baseLayers = {
+        //    "天地图底图": baseLayer
+        //};
+        //var overlays = {
+        //    "天地图注记": annotationLayer,
+        //    "省界": null  // 已在初始化时添加
+        //};
+        //L.control.layers(baseLayers, overlays).addTo(map);
+
+        // 添加简单的位置控件
+        L.control.attribution({prefix: '底图: 天地图'}).addTo(map);
+
+        isInitialized = true
+
+        // 通知Android地图已准备好
+        if (window.Android) {
+            Android.requestLocationUpdate();
+        }
+
+        setlayer(centerLat, centerLng)
+    }
+
+    function setlayer(lat, lng) {
+        const newLatLng = [lat, lng];
+        locationMaker = L.marker(newLatLng);
+        locationMaker.addTo(map);
+        accuracyCircle = L.circle(newLatLng, {radius: 50});
+        accuracyCircle.addTo(map);
+        locationHistory.push(newLatLng);
+        if (locationHistory.length > 100) {
+            locationHistory.shift();
+        }
+        polyline = L.polyline(locationHistory, {color: 'blue'});
+        if (locationHistory.length > 5) {
+            polyline.addTo(map);
+        }
+    }
+
+    // 搜索逻辑
+    function searchBusLine() {
+        var keyword = document.getElementById('busSearchInput').value;
+        if (!keyword) {
+            alert('请输入搜索关键词');
+            return;
+        }
+
+        // 1. 获取当前地图的显示范围 (河南省内)
+        var bounds = map.getBounds();
+        var mapBounds = bounds.getSouthWest().lng + ',' +
+                        bounds.getSouthWest().lat + ',' +
+                        bounds.getNorthEast().lng + ',' +
+                        bounds.getNorthEast().lat;
+
+        // 2. 构建请求URL (使用地名搜索服务V2.0)
+        // 由调用者处理密钥无效的情况
+        if (!tk) {
+            // 例如：在搜索结果的DOM位置显示错误
+            document.getElementById('searchResult').innerHTML = '<span style="color:red;">错误：未配置有效的天地图密钥，请检查设置。</span>';
+            // 或者可以弹出提示
+            // alert('请先在应用的设置页面中配置有效的天地图密钥！');
+            return; // 停止搜索
+        }
+        var baseUrl = 'https://api.tianditu.gov.cn/v2/search';
+        var params = {
+            'postStr': JSON.stringify({
+                'keyWord': keyword,
+                'level': '11',          // 可以调整，数字代表搜索精细度
+                'mapBound': mapBounds,  // 将搜索范围限定在当前视野
+                'queryType': '1',       // 查询类型，可尝试调整
+                'count': '20',          // 返回结果数量
+                'start': '0'            // 分页起始，0表示从第一条开始
+            }),
+            'type': 'query',
+            'tk': tk
+        };
+        var queryString = Object.keys(params).map(key => key + '=' + encodeURIComponent(params[key])).join('&');
+        var url = baseUrl + '?' + queryString;
+        document.getElementById('debug-logs').innerHTML = url
+        console.log('搜索url:', url);
+
+        // 3. 发送搜索请求
+        fetch(url)
+            .then(response => {
+                console.log('响应状态:', response.status, response.ok);
+                if (!response.ok) {
+                    // 如果响应状态码不是200-299，抛出错误以便进入catch块
+                    document.getElementById('debug-logs').innerHTML = `网络响应异常: ${response.status} ${response.statusText}`
+                    throw new Error(`网络响应异常: ${response.status} ${response.statusText}`);
+                }
+                    return response.json();
+                })
+                .then(data => {
+                    displayBusResults(data);
+                })
+                .catch(error => {
+                    console.error('搜索请求失败详情:', error);
+                    // 在界面上显示更具体的错误信息
+                    document.getElementById('searchResult').innerHTML =
+                        '<span style="color:red;">搜索失败: ' +
+                        (error.message || '未知网络错误') +
+                        '<br>请检查设备网络连接。</span>';
+                });
+    }
+
+    /**
+     * 获取有效的天地图密钥。
+     * 优先级：1. Android接口实时获取 > 2. 全局变量中的备用密钥。
+     * @returns {string} 获取到的密钥字符串。如果无效，则返回空字符串。
+     */
+    function getEffectiveTiandituKey() {
+        var tk = ''; // 初始化密钥变量
+
+        // 1. 优先尝试通过Android原生接口获取
+        if (typeof Android !== 'undefined' && Android.getTiandituKey) {
+            tk = Android.getTiandituKey();
+            console.log("通过Android接口获取密钥:", tk ? "成功" : "获取到的值为空");
+        } else {
+            // 2. 降级方案：使用WebView初始化时注入的全局备用密钥
+            tk = (typeof window.USER_TIANDITU_KEY !== 'undefined') ? window.USER_TIANDITU_KEY : '';
+            console.warn("Android接口不可用，尝试使用备用全局密钥:", tk ? "存在" : "不存在");
+        }
+
+        // 3. 检查密钥有效性（可根据需要调整条件）
+        // 这里检查是否为空、是否为默认占位符。假设默认占位符包含'YOUR_DEFAULT'或'YOUR_OLD_HARDCODED_KEY'
+        if (!tk || /YOUR_(DEFAULT|OLD_HARDCODED)_KEY/.test(tk)) {
+            console.error("获取到的天地图密钥无效或为默认值:", tk);
+            // 注意：此处不进行UI提示（如alert），仅在控制台报错，将错误处理权交给调用者。
+            return ''; // 返回空字符串表示获取失败
+        }
+
+        // 4. 返回有效的密钥
+        console.log("使用有效密钥（已隐藏部分）:", tk.substring(0, 4) + '...');
+        return tk;
+    }
+
+    function displayBusResults(data) {
+        // 1. 清除之前的标记和结果
+        busMarkers.forEach(marker => map.removeLayer(marker));
+        busMarkers = [];
+        var resultDiv = document.getElementById('searchResult');
+        resultDiv.innerHTML = '';
+        console.log('结果:', data.toString());
+        // 2. 检查数据状态（非常重要！）
+        if (!data) {
+            resultDiv.innerHTML = '<span style="color:red;">错误：未接收到有效数据。</span>';
+            return;
+        }
+        if (data.status && data.status.infocode != 1000) {
+            resultDiv.innerHTML = '<span style="color:orange;">服务提示：' + (data.status.cndesc || '请求异常') + '</span>';
+            return;
+        }
+
+        // 3. 定义要处理的数据数组（核心逻辑）
+        //    根据你的需求，这里优先展示公交线路(lineData)，其次才是地点(pois)
+        var itemsToShow = [];
+        var resultType = 'unknown';
+
+        if (data.lineData && Array.isArray(data.lineData) && data.lineData.length > 0) {
+            itemsToShow = data.lineData;
+            resultType = 'line'; // 公交线路
+            console.log('公交线路:', itemsToShow.toString());
+        } else if (data.pois && Array.isArray(data.pois) && data.pois.length > 0) {
+            itemsToShow = data.pois;
+            resultType = 'poi'; // 兴趣点
+        }
+
+        // 4. 根据数据类型进行展示
+        if (itemsToShow.length === 0) {
+            resultDiv.innerHTML = '<span style="color:gray;">未找到与关键词精确匹配的公交线路或地点。</span>';
+            console.log('无具体结果，但服务器返回了:', data); // 可查看完整返回
+            return;
+        }
+
+        // 显示结果数量和信息
+        var count = itemsToShow.length || data.count;
+        resultDiv.innerHTML += `<div style="color:#666; margin-bottom:8px;">找到 ${count} 条结果 (${resultType})</div>`;
+
+        // 5. 遍历并创建每个结果的显示项
+        itemsToShow.forEach(function(item, index) {
+            var itemDiv = document.createElement('div');
+            itemDiv.style.padding = '8px';
+            itemDiv.style.marginBottom = '6px';
+            itemDiv.style.border = '1px solid #eee';
+            itemDiv.style.borderRadius = '4px';
+            itemDiv.style.backgroundColor = '#f9f9f9';
+
+            var name = item.name || '未命名';
+            var poiType = item.poiType || '未知类型';
+
+            // 根据类型组装不同的信息
+            var infoHtml = `<strong>${name}</strong><br>`;
+            if (resultType === 'line') {
+                // 公交线路信息
+                var stationNum = item.stationNum || '?';
+                infoHtml += `类型：公交线路 (${poiType}) | 站点数：${stationNum}<br>`;
+                infoHtml += `<button onclick="alert('线路UUID: ${item.uuid}\\n如需展示详细走向，需调用其他接口获取坐标。')" style="margin-top:4px; padding:2px 8px; font-size:11px;">查看详情</button>`;
+            } else {
+                // POI兴趣点信息
+                var address = item.address || '地址不详';
+                infoHtml += `地址：${address}<br>`;
+                infoHtml += `电话：${item.phone || '无'}<br>`;
+                // 尝试在地图上标记POI（如果有坐标）
+                if (item.lonlat) {
+                    var coords = item.lonlat.split(',');
+                    if (coords.length === 2) {
+                        var lat = parseFloat(coords[1]);
+                        var lon = parseFloat(coords[0]);
+                        var marker = L.marker([lat, lon])
+                            .bindPopup(`<b>${name}</b><br>${address}`);
+                        marker.addTo(map);
+                        busMarkers.push(marker);
+                        infoHtml += `<button onclick="map.setView([${lat}, ${lon}], 15); this.parentElement.parentElement.style.backgroundColor='#e6f7ff';" style="margin-top:4px; padding:2px 8px; font-size:11px;">在地图定位</button>`;
+                    }
+                }
+            }
+
+            itemDiv.innerHTML = infoHtml;
+            resultDiv.appendChild(itemDiv);
+        });
+
+        // 6. 如果搜索到了线路，提示用户
+        if (resultType === 'line') {
+            resultDiv.innerHTML += `<div style="margin-top:10px; padding:8px; background-color:#e8f5e9; border-radius:4px; color:#2e7d32;">
+                <small>💡 已找到公交线路。点击“查看详情”可获取线路ID。如需在地图上绘制完整线路，需要使用线路ID调用“公交线路详情”接口。</small>
+            </div>`;
+        }
+    }
+
+    // 点击结果时居中显示该点
+    function centerAndShow(index) {
+        if (busMarkers[index]) {
+            map.setView(busMarkers[index].getLatLng(), 14);
+            busMarkers[index].openPopup();
+        }
+    }
+
+    // 调试日志函数
+    function debugLog(msg) {
+        var logDiv = document.getElementById('debug-logs');
+        var entry = document.createElement('div');
+        entry.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+        logDiv.appendChild(entry);
+        console.log(msg);
+    }
+
+    // 估算当前缓存大小 (近似值)
+    function estimateCacheSize() {
+        localforage.length().then(function(count) {
+            alert(`当前大约缓存了 ${count} 张瓦片。`);
+            console.log(`缓存瓦片数量: ${count}`);
+            debugLog(`缓存瓦片数量: ${count}`)
+        });
+    }
+
+    // 清空所有瓦片缓存
+    function clearTileCache() {
+        if (confirm('确定要清空所有离线地图缓存吗？')) {
+            localforage.iterate(function(value, key, iterationNumber) {
+                if (key.startsWith('tile_')) {
+                    return localforage.removeItem(key);
+                }
+            }).then(function() {
+                alert('离线缓存已清空！');
+                location.reload(); // 刷新页面使地图重新加载
+            });
+        }
+    }
+</script>
+</body>
+</html>
