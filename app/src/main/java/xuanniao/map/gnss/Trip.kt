@@ -3,6 +3,10 @@ package xuanniao.map.gnss
 import android.annotation.SuppressLint
 import android.location.Location
 import android.util.Log
+import org.json.JSONException
+import org.json.JSONObject
+import java.util.*
+
 
 class Trip {
     private val tag = "旅程"
@@ -14,11 +18,6 @@ class Trip {
     lateinit var lastPoint: Location
     lateinit var startPoint: Location
 
-
-    lateinit var nowPointFused: Location
-    lateinit var lastPointFused: Location
-    lateinit var startPointFused: Location
-
     var distance: Double = 0.0
     var distanceFused: Double = 0.0
 
@@ -27,10 +26,6 @@ class Trip {
         nowPoint = Location("initial")
         lastPoint = Location("initial")
         startPoint = Location("initial")
-
-        nowPointFused = Location("initial")
-        lastPointFused = Location("initial")
-        startPointFused = Location("initial")
     }
 
     fun update(location: Location) {
@@ -52,7 +47,7 @@ class Trip {
         val hour = time / 3600000
         val minutes = time / 60000 - (hour * 60)
         val seconds = time / 1000 - (minutes * 60)
-        Log.d(tag, String.format("%02d:%02d:%02d", hour, minutes, seconds))
+//        Log.d(tag, String.format("%02d:%02d:%02d", hour, minutes, seconds))
         return String.format("%02d:%02d:%02d", hour, minutes, seconds)
     }
 
@@ -64,9 +59,6 @@ class Trip {
         startTime = satelliteTime
         startPoint = nowPoint
         isTripping = true
-
-        startPointFused = nowPointFused
-        isTripping = true
         return 1
     }
 
@@ -77,5 +69,6 @@ class Trip {
         distanceFused = 0.0
         initializeDistance()
     }
+
 
 }
