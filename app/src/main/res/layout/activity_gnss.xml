@@ -395,56 +395,49 @@
         android:layout_marginHorizontal="30dp"
         app:layout_constraintBottom_toBottomOf="parent"
     >
-
-        <!-- 开始定位按钮 -->
-        <ToggleButton
-            android:id="@+id/btn_switch_loc"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="60dp"
-            android:textOff="开始定位"
-            android:textOn="停止定位"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:background="#00CC00"
-            android:layout_marginHorizontal="3dp"
-        />
-
-        <!-- 清空记录 -->
         <Button
-            android:id="@+id/btn_map"
-            android:layout_width="0dp"
-            android:layout_weight="1"
-            android:layout_height="60dp"
-            android:text="打开地图"
-            android:textColor="#FFFFFF"
-            android:textSize="16sp"
-            android:padding="0dp"
-            android:background="#FFC107"
-            android:layout_marginHorizontal="3dp"
+                android:id="@+id/btn_map"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="60dp"
+                android:text="打开地图"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:padding="0dp"
+                android:background="#00CC00"
+                android:layout_marginHorizontal="3dp"
         />
-
-        <ToggleButton
-            android:id="@+id/btn_clean_trip"
+        <Button
+            android:id="@+id/btn_stop_trip"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="60dp"
-            android:textOff="--"
-            android:textOn="重置旅程"
+            android:text="--"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:background="#CC0000"
             android:layout_marginHorizontal="3dp"
+            android:enabled="false"
         />
-
-        <!-- 开始/停止旅程按钮 -->
+        <Button
+            android:id="@+id/btn_clean_trip"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="60dp"
+            android:text="--"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:background="#FFC107"
+            android:layout_marginHorizontal="3dp"
+            android:enabled="false"
+        />
         <ToggleButton
             android:id="@+id/btn_trip"
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="60dp"
             android:textOff="开启旅程"
-            android:textOn="结束旅程"
+            android:textOn="暂停"
             android:textColor="#FFFFFF"
             android:textSize="16sp"
             android:background="#0066CC"
@@ -457,17 +450,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:visibility="gone"
-    >
-        <ImageButton
-            android:id="@+id/btn_back"
-            android:contentDescription="返回"
-            app:srcCompat="@drawable/back"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/btn_settings"
-        />
-    </WebView>
+    />
 
     <!-- 辅助参考线：将屏幕分为上下两部分，便于布局对齐 -->
     <androidx.constraintlayout.widget.Guideline
@@ -482,7 +465,7 @@
             android:id="@+id/btn_settings"
             android:contentDescription="设置"
             app:srcCompat="@drawable/settings"
-            android:background="@color/black"
+            android:background="@color/transparent"
             android:layout_width="40dp"
             android:layout_height="36dp"
             android:layout_margin="6dp"

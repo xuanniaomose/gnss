@@ -71,4 +71,18 @@ class WebAppInterface(private val context: Context) {
             }
         }
     }
+
+    @JavascriptInterface
+    fun getLastLocation(): String {
+        context as GnssActivity
+        val location = context.getLocation()
+        val latLng: String
+        if (location != null) {
+            latLng = location.latitude.toString() + "," + location.longitude
+        } else {
+            latLng = ""
+        }
+        Log.d("WebAppInterface", latLng)
+        return latLng
+    }
 }

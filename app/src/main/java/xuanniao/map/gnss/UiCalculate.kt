@@ -2,12 +2,13 @@ package xuanniao.map.gnss
 
 import android.hardware.SensorManager
 import android.location.Location
-import android.util.Log
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.sqrt
-
+import android.content.Context
+import android.content.SharedPreferences
+import androidx.core.content.edit
 
 const val tag: String = "GnssData数据类"
 
@@ -89,4 +90,91 @@ fun updateAttitude(rotationVector: FloatArray): FloatArray {
     // 提取欧拉角
     SensorManager.getOrientation(rotationMatrix, orientation)
     return orientation
+}
+
+/**
+ * SharedPreferences 存储/读取 Location 的工具类
+ */
+object LocationPrefsManager {
+    // SharedPreferences 文件名
+    const val PREFS_NAME = "location_prefs"
+
+    // 存储 Location 属性的 key
+    const val KEY_LATITUDE = "location_latitude"
+    const val KEY_LONGITUDE = "location_longitude"
+    const val KEY_ACCURACY = "location_accuracy"
+    const val KEY_PROVIDER = "location_provider"
+    const val KEY_TIME = "location_time"
+
+    /**
+     * 存储 Location 对象到 SharedPreferences
+     * @param prefs SharedPreferences
+     * @param location 要存储的 Location 对象
+     */
+    fun saveLocation(prefs: SharedPreferences, location: Location) {
+        prefs.edit {
+            // 拆解 Location 的核心属性并存储
+            putFloat(KEY_LATITUDE, location.latitude.toFloat()) // 纬度（double转float）
+            putFloat(KEY_LONGITUDE, location.longitude.toFloat()) // 经度（double转float）
+            putFloat(KEY_ACCURACY, location.accuracy) // 定位精度
+            putString(KEY_PROVIDER, location.provider) // 定位提供者（如gps、network）
+            putLong(KEY_TIME, location.time) // 定位时间
+        }
+        // 提交保存（apply 异步，commit 同步，推荐 apply）
+    }
+
+    /**
+     * 从 SharedPreferences 读取 Location 对象
+     * @param prefs SharedPreferences
+     * @return 组装后的 Location 对象，若无数据则返回 null
+     */
+    fun getLocation(prefs: SharedPreferences): Location {
+        // 检查是否有存储的纬度（核心属性），无则返回 null
+//        if (!prefs.contains(KEY_LATITUDE)) return null
+
+        // 读取所有属性
+        val latitude = prefs.getFloat(KEY_LATITUDE, 200f).toDouble()
+        val longitude = prefs.getFloat(KEY_LONGITUDE, 200f).toDouble()
+        val accuracy = prefs.getFloat(KEY_ACCURACY, 50f)
+        val provider = prefs.getString(KEY_PROVIDER, "initial") ?: "gps"
+        val time = prefs.getLong(KEY_TIME, 0L)
+
+        // 重新组装 Location 对象
+        val location = Location(provider)
+        location.latitude = latitude
+        location.longitude = longitude
+        location.accuracy = accuracy
+        location.time = time
+        return location
+    }
+
+
+    /**
+     * 清除存储的 Location 数据
+     * @param prefs SharedPreferences
+     * @param location 最后已知点
+     */
+    fun setLocation(prefs: SharedPreferences, location: Location) {
+        prefs.edit {
+            putFloat(KEY_LATITUDE, location.latitude.toFloat()) // 纬度（double转float）
+            putFloat(KEY_LONGITUDE, location.longitude.toFloat()) // 经度（double转float）
+            putFloat(KEY_ACCURACY, location.accuracy) // 定位精度
+            putString(KEY_PROVIDER, location.provider)
+            putLong(KEY_TIME, location.time) // 定位时间
+        }
+    }
+
+    /**
+     * 清除存储的 Location 数据
+     * @param prefs SharedPreferences
+     */
+    fun clearLocation(prefs: SharedPreferences) {
+        prefs.edit {
+            putFloat(KEY_LATITUDE, 200f) // 纬度（double转float）
+            putFloat(KEY_LONGITUDE, 200f) // 经度（double转float）
+            putFloat(KEY_ACCURACY, 40f) // 定位精度
+            putString(KEY_PROVIDER, "initial")
+            putLong(KEY_TIME, 0) // 定位时间
+        }
+    }
 }

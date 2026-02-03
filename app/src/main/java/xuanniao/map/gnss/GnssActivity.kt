@@ -3,6 +3,7 @@ package xuanniao.map.gnss
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.SharedPreferences
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.location.Location
@@ -17,6 +18,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 import org.json.JSONException
 import org.json.JSONObject
@@ -31,12 +33,14 @@ class GnssActivity : AppCompatActivity() {
     var tag : String? = "主面板"
     private lateinit var binding: ActivityGnssBinding
     private lateinit var gnssManager: GnssManager
-    private var trip = Trip()
+    lateinit var prefs: SharedPreferences
+    private var trip: Trip? = null
     private var location: Location? = null
     private var isMap = false
     private var isLocating: Boolean = false
     private var isTripping: Boolean = false
     private var isStationary: Boolean = true
+    private var isLocked: Boolean = false
     private var headingDegrees: Float = 0f
     private val handler: Handler = Handler(Looper.getMainLooper())
 
@@ -45,33 +49,36 @@ class GnssActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityGnssBinding.inflate(layoutInflater)
         setContentView(binding.root)
-
-        trip.initializeDistance()
-        // 开始/停止 定位（先检查GNSS是否开启）
-        binding.btnSwitchLoc.setOnCheckedChangeListener { _, isChecked ->
-            if (!isLocating) {
-                Log.d(tag, "开始定位")
-                locationCheck(isChecked)
-            } else {
-                Log.d(tag, "停止定位")
-                binding.tvDirection.text = "--"
-                binding.tvSatellite.text = "-"
-                binding.btnSwitchLoc.isChecked = false
-                isLocating = false
-                gnssManager.stopLocation()
-            }
-        }
+        locationPermissionCheck()
+        prefs = PreferenceManager.getDefaultSharedPreferences(this)
+        trip = Trip(this)
+        location = trip?.initializeDistance()
         // 打开地图
-        binding.btnMap.setOnClickListener { setupMapView() }
-        // 开启/停止 旅程
+        binding.btnMap.setOnClickListener {
+            if (isLocked) {
+                binding.btnTrip.isEnabled = true
+                binding.btnSettings.isEnabled = true
+                Toast.makeText(this@GnssActivity,
+                    "按钮已解锁", Toast.LENGTH_LONG).show()
+            }
+            else { setupMapView() }
+        }
+        // 长按锁定按钮
+        binding.btnMap.setOnLongClickListener {
+            if (!isLocked) {
+                binding.btnTrip.isEnabled = false
+                binding.btnSettings.isEnabled = false
+                Toast.makeText(this@GnssActivity,
+                    "按钮已锁定", Toast.LENGTH_LONG).show()
+            }
+            true
+        }
         binding.btnTrip.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {startTrip()}
+            if (isChecked) { startTrip() }
             else { stopTrip() }
         }
-        // 重置旅程
-        binding.btnCleanTrip.setOnCheckedChangeListener { _, _ ->
-            resetTrip()
-        }
+        binding.btnCleanTrip.setOnClickListener { resetTrip() }
+        binding.btnStopTrip.setOnClickListener { stopTrip() }
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
@@ -82,6 +89,9 @@ class GnssActivity : AppCompatActivity() {
                     setupMapView()
                 } else {
                     onBackPressedDispatcher.onBackPressed()
+                }
+                location?.let {
+                    prefs.edit { LocationPrefsManager.setLocation(prefs, it) }
                 }
             }
         }
@@ -106,10 +116,7 @@ class GnssActivity : AppCompatActivity() {
         gnssManager.setOnLocationChangeListener { location ->
             runOnUiThread {
                 setLocationUpdated(location)
-//                updateLocationUI()
-//                addToLocationHistory(location)
-                // 如果地图正在显示，发送位置到WebView
-                if (isMap) sendLocationToWeb(location)
+                if (isMap || !isStationary) sendLocationToWeb(location)
             }
         }
         gnssManager.setOnSensorChangeListener { event ->
@@ -119,13 +126,11 @@ class GnssActivity : AppCompatActivity() {
             1 -> isLocating = true
             -1 -> { // 未授权
                 isLocating = false
-                binding.btnSwitchLoc.isChecked = false
                 PermissionUtil.checkPermission(this,
                     Manifest.permission.ACCESS_FINE_LOCATION)
             }
             -2 -> { // 定位未开启
                 isLocating = false
-                binding.btnSwitchLoc.isChecked = false
                 PermissionUtil.showLocationServiceEnableDialog(this)
             }
         }
@@ -152,9 +157,10 @@ class GnssActivity : AppCompatActivity() {
         binding.tvSatelliteTime.text = longToStringTime(locationData.time)
 
         if (isTripping) {
-            binding.tvTiming.text = trip!!.timing(locationData.time)
+            trip?.let { binding.tvTiming.text = it.timing(locationData.time) }
             if (!isStationary) binding.tvMileage.text = "%.2f".format(
-                trip!!.accumulate(locationData)) + "m"
+                trip?.accumulate(locationData)
+            ) + "m"
         }
         if (!isStationary) {
             binding.tvBearing.text = locationData.bearing.toString()
@@ -163,6 +169,9 @@ class GnssActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 显示传感器数据
+     */
     @SuppressLint("SetTextI18n")
     fun setSensorUpdate(event: SensorEvent?) {
         // 根据传感器类型处理数据
@@ -178,8 +187,17 @@ class GnssActivity : AppCompatActivity() {
             Sensor.TYPE_ROTATION_VECTOR -> {
                 val attitude = updateAttitude(event.values)
                 headingDegrees = attitudeToBearing(attitude[0])
+                location?.let { it.bearing = headingDegrees }
                 binding.tvBearing.text = "%.1f".format(headingDegrees)
                 binding.tvDirection.text = bearingToDirection(headingDegrees).dir
+                if (isMap) {
+                    val locationJson = java.lang.String.format(
+                        Locale.US, "{\"degress\": %f}",
+                        headingDegrees)
+                    val jsCode = "javascript:if(typeof onBearingUpdate === 'function')" +
+                            " { onBearingUpdate(" + locationJson + "); }"
+                    executeJavaScript(jsCode)
+                }
             }
         }
         if (event.sensor.type == Sensor.TYPE_LINEAR_ACCELERATION) {
@@ -197,11 +215,16 @@ class GnssActivity : AppCompatActivity() {
      * 开启旅程（开启计时，开启里程叠加）
      */
     fun startTrip() {
-        when (trip?.startTrip()) {
+        if (trip == null || isTripping) return
+        when (trip!!.startTrip()) {
             1 -> {
                 isTripping = true
-                binding.btnCleanTrip.isChecked = true
+                binding.btnStopTrip.text = "停止旅程"
+                binding.btnCleanTrip.text = "重置旅程"
+                binding.btnStopTrip.isEnabled = true
+                binding.btnCleanTrip.isEnabled = true
                 location?.let { sendLocationToWeb(it) }
+                drawTrack(true)
             }
             -1 -> {
                 isTripping = false
@@ -222,27 +245,36 @@ class GnssActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("SetTextI18n")
+    fun resetTrip() {
+        if (!isTripping) return
+        trip?.cleanTrip()
+        binding.tvTiming.text = "00:00:00"
+        binding.tvMileage.text = "0m"
+    }
+
     /**
-     * 结束旅程（停止计时，关闭里程叠加，把重置旅程按钮还原状态）
+     * 结束旅程（停止计时，关闭里程叠加，重置按钮状态）
      */
     fun stopTrip() {
         if (!isTripping) return
+        trip?.stopTrip()
         isTripping = false
-        binding.btnCleanTrip.isChecked = false
+        drawTrack(false)
+        binding.btnStopTrip.text = "--"
+        binding.btnCleanTrip.text = "--"
+        binding.btnStopTrip.isEnabled = false
+        binding.btnCleanTrip.isEnabled = false
     }
 
-    fun locationCheck(isChecked: Boolean) {
+    fun locationPermissionCheck() {
         PermissionUtil.checkAndRequestPermission(this,
             Manifest.permission.ACCESS_FINE_LOCATION,
             "精确定位", "高精度定位需要精确定位的权限",
             object : PermissionCallback {
                 override fun onPermissionGranted() { initGnssManager() }
-                override fun onPermissionDenied() {
-                    if (isChecked) binding.btnSwitchLoc.isChecked = false
-                }
-                override fun onPermissionPermanentlyDenied() {
-                    if (isChecked) binding.btnSwitchLoc.isChecked = false
-                }
+                override fun onPermissionDenied() { }
+                override fun onPermissionPermanentlyDenied() { }
             }
         )
     }
@@ -280,10 +312,6 @@ class GnssActivity : AppCompatActivity() {
             binding.wvMap.visibility = View.VISIBLE
             netCheck()
             checkAndPromptForApiKey()
-            binding.btnBack.setOnClickListener {_ ->
-//                setupMapView()
-                centerMapOnLocation()
-            }
             onResume()
         } else {
             isMap = false
@@ -292,7 +320,6 @@ class GnssActivity : AppCompatActivity() {
             binding.llControlButtons.visibility = View.VISIBLE
             binding.wvMap.visibility = View.GONE
         }
-
     }
 
     fun netCheck() {
@@ -340,23 +367,17 @@ class GnssActivity : AppCompatActivity() {
         }
         // 设置WebChromeClient（如果需要处理弹窗、进度条等）
         binding.wvMap.webViewClient = MyWebViewClient()
-
-        // 注入JavaScript接口对象，并命名为“Android”
-        binding.wvMap.addJavascriptInterface(WebAppInterface(this), "Android")
-
+        // 注入JavaScript接口对象，并命名为“AndroidLocation”
+        binding.wvMap.addJavascriptInterface(
+            WebAppInterface(this), "AndroidLocation")
         // 设置WebViewClient，在页面加载完成后注入密钥
         binding.wvMap.webViewClient = object : WebViewClient() {
             override fun onPageFinished(view: WebView, url: String) {
                 super.onPageFinished(view, url)
                 // 页面加载完成后，主动将密钥传递给JavaScript
                 injectApiKeyToWeb()
-            }
-        }
-        // 设置 WebViewClient（处理页面加载、密钥注入）
-        binding.wvMap.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String) {
-                super.onPageFinished(view, url)// 这是你原有的密钥注入逻辑，必须保留injectApiKeyToWeb()// 也可以在这里打印日志，确认页面加载完成
-                Log.d("MapActivity", "页面加载完成: $url")
+                injectLastPointToWeb()
+                Log.d(tag, "页面加载完成: $url")
             }
         }
     }
@@ -372,14 +393,22 @@ class GnssActivity : AppCompatActivity() {
         val jsCode = if (userKey.isNullOrEmpty()) {
             // 如果用户没有设置，可以传递一个空值或默认值，并提示
             "console.warn('未检测到用户设置的天地图密钥，将尝试使用内置密钥。');"
-
         } else {
             // 将密钥注入到JavaScript的全局作用域中
             "window.USER_TIANDITU_KEY = '${userKey}'; console.log('Android端密钥已注入WebView。');"
         }
-
         // 在WebView中执行这段JavaScript代码
         binding.wvMap.evaluateJavascript(jsCode, null)
+    }
+
+    private fun injectLastPointToWeb() {
+        val latLng: String
+        if (location != null) {
+            latLng = location!!.latitude.toString() + "," + location!!.longitude
+            val jsCode = "window.LAST_POINT = '${latLng}'; " +
+                    "console.log('Android端初始位置已注入WebView。');"
+            binding.wvMap.evaluateJavascript(jsCode, null)
+        }
     }
 
     private fun loadLocalHtml() {
@@ -432,25 +461,33 @@ class GnssActivity : AppCompatActivity() {
             locationJson = json.toString()
         } catch (e: JSONException) {
             locationJson = java.lang.String.format(
-                Locale.CHINA, "{\"lat\": %f, \"lng\": %f}",
-                location.getLatitude(), location.getLongitude()
+                Locale.US, "{\"lat\": %f, \"lng\": %f}",
+                location.latitude, location.longitude
             )
         }
         val jsCode = "javascript:if(typeof onLocationUpdate === 'function') { " +
                 "onLocationUpdate(" + locationJson + "); }"
-        Log.d(tag, "jsCode: $jsCode")
+        executeJavaScript(jsCode)
+        if (isTripping) drawTrack(true)
+    }
+
+    // 是否绘制轨迹
+    private fun drawTrack(draw: Boolean) {
+        val jsCode = "javascript:if(typeof drawTrack === 'function') { " +
+                "drawTrack(" + draw + "); }"
         executeJavaScript(jsCode)
     }
 
     // 执行JavaScript代码
     private fun executeJavaScript(jsCode: String) {
-        handler.post({
+//        Log.d(tag, "jsCode: $jsCode")
+        handler.post{
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
                 binding.wvMap.evaluateJavascript(jsCode, null)
             } else {
                 binding.wvMap.loadUrl(jsCode)
             }
-        })
+        }
     }
 
     // 地图居中到当前位置
@@ -467,15 +504,6 @@ class GnssActivity : AppCompatActivity() {
         } else {
             Toast.makeText(this, "暂无位置信息", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    @SuppressLint("SetTextI18n")
-    fun resetTrip() {
-        if (!isTripping) return
-        trip.cleanTrip()
-        binding.tvTiming.text = "00:00:00"
-        binding.tvMileage.text = "0m"
-        binding.btnCleanTrip.isChecked = true
     }
 
     fun getLocation(): Location? {
