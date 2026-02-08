@@ -18,7 +18,7 @@
                                 <PersistentState>
                                   <option name="values">
                                     <map>
-                                      <entry key="url" value="file:/D:/Program_Files/JavaforAndroid/Sdk/icons/material/materialicons/reply/baseline_reply_24.xml" />
+                                      <entry key="url" value="file:/D:/Program_Files/JavaforAndroid/Sdk/icons/material/materialicons/close/baseline_close_24.xml" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -29,7 +29,7 @@
                         <option name="values">
                           <map>
                             <entry key="color" value="ffffff" />
-                            <entry key="outputName" value="back" />
+                            <entry key="outputName" value="close" />
                             <entry key="sourceFile" value="E:\Program_Data\android_app\XuanNiaoMap_forAndroid\gnss" />
                           </map>
                         </option>

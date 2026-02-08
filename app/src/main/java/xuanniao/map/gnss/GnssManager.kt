@@ -1,5 +1,6 @@
 package xuanniao.map.gnss
 
+import android.app.Activity
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -11,17 +12,26 @@ import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.OnLifecycleEvent
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 
 /**
  * GNSS+各种传感器融合管理器
  * @param context 上下文（建议传Application Context避免内存泄漏）
  */
-class GnssManager(private val context: Context): SensorEventListener, LocationListener {
+class GnssManager(private val context: Context):
+    SensorEventListener, LocationListener, LifecycleObserver {
     val tag: String = "定位管理器"
     var isLocating: Boolean = false
     // 传感器管理器
     private val sensorManager by lazy {
-        context.getSystemService(SensorManager::class.java)
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     }
     // 原生GNSS定位管理器
     private val locationManager: LocationManager by lazy {
@@ -46,6 +56,8 @@ class GnssManager(private val context: Context): SensorEventListener, LocationLi
         this.sensorChangeListener = listener
     }
 
+    private lateinit var gnssViewModel: GnssViewModel
+
     // 原生GNSS刷新率（ms），建议1000ms=1Hz（过高易跳变，过低无意义）
     private val GNSS_INTERVAL = 1000L
     // 原生GNSS最小距离变化（米），0表示只要有更新就回调（纯靠时间间隔控制）
@@ -58,11 +70,12 @@ class GnssManager(private val context: Context): SensorEventListener, LocationLi
     private var lastSensorTime: Long = 0L
     private var location: Location? = null
 
-
     /**
      * 启动定位（注册原生GNSS传感器）
      */
     fun startLocation(): Int {
+        gnssViewModel = ViewModelProvider(context
+                as GnssActivity)[GnssViewModel::class.java]
         if (isLocating) {
             Log.d(tag, "正在定位")
             return 0
@@ -72,8 +85,8 @@ class GnssManager(private val context: Context): SensorEventListener, LocationLi
             Sensor.TYPE_ROTATION_VECTOR to SensorManager.SENSOR_DELAY_NORMAL
         )
         sensors.forEach { (type, delay) ->
-            sensorManager.getDefaultSensor(type)?.let { sensor ->
-                sensorManager.registerListener(this, sensor, delay)
+            this@GnssManager.sensorManager.getDefaultSensor(type)?.let { sensor ->
+                this@GnssManager.sensorManager.registerListener(this, sensor, delay)
             } ?: run {
                 Log.w(tag, "传感器类型： $type 不可用")
             }
@@ -116,7 +129,7 @@ class GnssManager(private val context: Context): SensorEventListener, LocationLi
     fun stopLocation() {
         if (!isLocating) return
         // 注销传感器
-        sensorManager.unregisterListener(this)
+        this@GnssManager.sensorManager.unregisterListener(this)
         // 注销原生GNSS监听器
         locationManager.removeUpdates(this)
         // 重置状态，避免下次启动数据混乱
@@ -131,6 +144,9 @@ class GnssManager(private val context: Context): SensorEventListener, LocationLi
     override fun onSensorChanged(event: SensorEvent) {
         if (sensorChangeListener == null) return
         sensorChangeListener!!.onSensorChanged(event)
+        // 确保在主线程分发（LiveData.observe默认在主线程接收）
+        if (this::gnssViewModel.isInitialized)
+            gnssViewModel.updateSensorData(event)
     }
 
     /**
@@ -145,6 +161,8 @@ class GnssManager(private val context: Context): SensorEventListener, LocationLi
         // 原生数据回传
         if (locationChangeListener == null) return
         locationChangeListener!!.onLocationChanged(locationData)
+        if (this::gnssViewModel.isInitialized)
+            gnssViewModel.updateLocationData(locationData)
     }
 
     // 以下是LocationListener的其他默认方法，暂无需实现，保持空实现即可
@@ -152,4 +170,31 @@ class GnssManager(private val context: Context): SensorEventListener, LocationLi
     override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
     override fun onProviderEnabled(provider: String) {}
     override fun onProviderDisabled(provider: String) {}
+
+}
+
+
+/**
+ * 用 ViewModel 持有传感器管理器，保证数据在配置变更（如屏幕旋转）时不丢失
+ */
+class GnssViewModel: ViewModel() {
+    // 延迟初始化传感器管理器
+    private val _isTripping = MutableLiveData<Boolean>()
+    val isTripping = _isTripping
+    private val _location = MutableLiveData<Location>()
+    val location = _location
+    private val _senSorEvent = MutableLiveData<SensorEvent>()
+    val senSorEvent = _senSorEvent
+
+    fun updateModeData(isTripping: Boolean) {
+        _isTripping.value = isTripping
+    }
+
+    fun updateLocationData(locationData: Location) {
+        _location.value = locationData
+    }
+
+    fun updateSensorData(event: SensorEvent) {
+        _senSorEvent.value = event
+    }
 }

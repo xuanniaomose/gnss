@@ -9,45 +9,26 @@
     android:keepScreenOn="true"
     tools:context=".GnssActivity"
 >
-    <!-- 超大速度显示（km/h，软件核心展示） -->
-    <LinearLayout
-        android:id="@+id/ll_speed"
-        android:orientation="vertical"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/vp_top"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_margin="10dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="@+id/guideline_mid"
-    >
-        <TextView
-            android:id="@+id/tv_speed_kmh"
-            android:text="0"
-            android:textColor="#00FF00"
-            android:textSize="150sp"
-            android:textStyle="bold"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-        />
-        <TextView
-            android:id="@+id/tv_speed_unit"
-            android:text="km/h"
-            android:textColor="#00FF00"
-            android:textSize="30sp"
-            android:textStyle="bold"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-        />
-    </LinearLayout>
+    />
 
-    <!-- 辅助数据展示区域（平均速度、最大速度、GPS 信号、海拔） -->
     <TableLayout
         android:id="@+id/tl_data"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        app:layout_constraintTop_toTopOf="@+id/guideline_mid"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/guideline_mid"
     >
         <TableRow
             android:layout_margin="10dp"
@@ -74,7 +55,7 @@
                     android:layout_height="wrap_content"
                     android:text="0"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
                 <TextView
@@ -82,7 +63,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="km/h"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
             </LinearLayout>
@@ -109,7 +90,7 @@
                     android:layout_height="wrap_content"
                     android:text="0"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
                 <TextView
@@ -118,7 +99,7 @@
                     android:layout_height="wrap_content"
                     android:text="--"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
             </LinearLayout>
@@ -146,7 +127,7 @@
                     android:layout_height="wrap_content"
                     android:text="0"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
                 <TextView
@@ -154,7 +135,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="m/s²"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
             </LinearLayout>
@@ -185,7 +166,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textStyle="bold"
                     android:textSize="18sp"
                 />
@@ -213,7 +194,7 @@
                     android:layout_height="wrap_content"
                     android:text="0 米"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
             </LinearLayout>
@@ -239,7 +220,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="0"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textStyle="bold"
                     android:textSize="18sp"
                 />
@@ -272,7 +253,7 @@
                     android:layout_height="wrap_content"
                     android:text="0m"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
             </LinearLayout>
@@ -299,7 +280,7 @@
                     android:layout_height="wrap_content"
                     android:text="-"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
             </LinearLayout>
@@ -326,7 +307,7 @@
                     android:layout_height="wrap_content"
                     android:text="0"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
             </LinearLayout>
@@ -351,7 +332,7 @@
                     android:layout_height="wrap_content"
                     android:text="00:00:00"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="36sp"
                 />
             </LinearLayout>
@@ -378,7 +359,7 @@
                     android:layout_height="wrap_content"
                     android:text="0m"
                     android:textStyle="bold"
-                    android:textColor="#00FF00"
+                    android:textColor="@color/green_500"
                     android:textSize="18sp"
                 />
             </LinearLayout>
@@ -391,21 +372,21 @@
         android:id="@+id/ll_control_buttons"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="30dp"
+        android:layout_marginBottom="20dp"
         android:layout_marginHorizontal="30dp"
         app:layout_constraintBottom_toBottomOf="parent"
     >
         <Button
-                android:id="@+id/btn_map"
-                android:layout_width="0dp"
-                android:layout_weight="1"
-                android:layout_height="60dp"
-                android:text="打开地图"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:padding="0dp"
-                android:background="#00CC00"
-                android:layout_marginHorizontal="3dp"
+            android:id="@+id/btn_map"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="60dp"
+            android:text="打开地图"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:padding="0dp"
+            android:background="@color/green_500"
+            android:layout_marginHorizontal="3dp"
         />
         <Button
             android:id="@+id/btn_stop_trip"
@@ -445,20 +426,14 @@
         />
     </LinearLayout>
 
-    <WebView
-        android:id="@+id/wv_map"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:visibility="gone"
-    />
-
     <!-- 辅助参考线：将屏幕分为上下两部分，便于布局对齐 -->
     <androidx.constraintlayout.widget.Guideline
         android:id="@+id/guideline_mid"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        app:layout_constraintGuide_percent="0.4"
+        app:layout_constraintGuide_percent="0.45
+"
     />
 
     <ImageButton
@@ -466,9 +441,9 @@
             android:contentDescription="设置"
             app:srcCompat="@drawable/settings"
             android:background="@color/transparent"
-            android:layout_width="40dp"
+            android:layout_width="36dp"
             android:layout_height="36dp"
-            android:layout_margin="6dp"
+            android:layout_margin="10dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
     />

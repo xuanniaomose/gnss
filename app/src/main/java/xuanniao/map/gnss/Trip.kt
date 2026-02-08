@@ -82,7 +82,4 @@ class Trip(context: GnssActivity) {
         cleanTrip()
         isTripping = false
     }
-
-
-
 }
