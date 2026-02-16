@@ -451,12 +451,19 @@ class GnssActivity : AppCompatActivity() {
                 })
             recordAdapter.setOnItemClickListener(
                 object : RecordListAdapter.OnItemClickListener {
+                    @SuppressLint("Range")
                     override fun onClick(position: Int, record: MovementRecord) {
                         binding.vpTop.setCurrentItem(1, true)
                         val mapFragment = pagerAdapter.getMapFragment()
                         // 提取数据库中的路径点，并计算四至点
                         Log.d(tag, "打开轨迹： r${record.startTime}")
                         val locationList = dbh.queryAll("r${record.startTime}")
+                        if (locationList.isEmpty() || locationList[0].latitude == 200.0) {
+                            val location = Location("init")
+                            location.latitude = 200.0
+                            location.longitude = 200.0
+                            locationList.add(location)
+                        }
                         val pointList = mutableListOf<DoubleArray>()
                         var minLat = locationList[0].latitude
                         var minLon = locationList[0].longitude

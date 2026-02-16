@@ -285,6 +285,7 @@ class RecordDB(c: Context?) :
 
     /** 查询元数据表的所有行数据  */
     fun queryMetaAll(): MutableList<MovementRecord> {
+        if (!judgeDBTabExist(TABLE_META)) return mutableListOf()
         val cursor = writableDatabase.query(TABLE_META, null, null, null, null, null, null)
         val l: MutableList<MovementRecord> = cursorMetaSetMove(cursor)
         cursor.close()
