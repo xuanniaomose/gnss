@@ -8,6 +8,7 @@ import java.util.Locale
 import kotlin.math.sqrt
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
 
 const val tag: String = "GnssData数据类"
@@ -156,6 +157,7 @@ object LocationPrefsManager {
      */
     fun setLocation(prefs: SharedPreferences, location: Location) {
         prefs.edit {
+            Log.d(tag, "存储最后位置到sp")
             putFloat(KEY_LATITUDE, location.latitude.toFloat()) // 纬度（double转float）
             putFloat(KEY_LONGITUDE, location.longitude.toFloat()) // 经度（double转float）
             putFloat(KEY_ACCURACY, location.accuracy) // 定位精度
@@ -177,4 +179,16 @@ object LocationPrefsManager {
             putLong(KEY_TIME, 0) // 定位时间
         }
     }
+}
+
+/**
+ * 获取格式化后的时间字符串
+ */
+fun getFormattedDate(timeStamp: Long): String {
+    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    return if (timeStamp > 0) dateFormat.format(Date(timeStamp)) else "未初始化"
+}
+fun getFormattedTime(timeStamp: Long): String {
+    val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    return if (timeStamp > 0) timeFormat.format(Date(timeStamp)) else "未初始化"
 }

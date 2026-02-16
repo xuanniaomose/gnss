@@ -2,21 +2,41 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
     <PreferenceCategory android:title="天地图服务配置">
         <EditTextPreference
-                android:key="tianditu_api_key"
-                android:title="天地图密钥"
-                android:summary="点此输入从天地图官网申请的密钥"
-                android:dialogTitle="设置密钥"
-                android:inputType="text"
-                android:maxLines="1"
-                android:singleLine="true"/>
+            android:key="tianditu_api_key"
+            android:title="天地图密钥"
+            android:summary="点此输入从天地图官网申请的密钥"
+            android:dialogTitle="设置密钥"
+            android:inputType="text"
+            android:maxLines="1"
+            android:icon="@drawable/key"
+            android:singleLine="true"
+        />
     </PreferenceCategory>
     <PreferenceCategory android:title="提示">
         <Preference
-                android:title="如何获取密钥？"
-                android:summary="前往天地图官网注册并申请">
+            android:title="如何获取密钥？"
+            android:summary="前往天地图官网注册并申请"
+            android:icon="@drawable/question"
+        >
             <intent
-                    android:action="android.intent.action.VIEW"
-                    android:data="https://www.tianditu.gov.cn" />
+                android:action="android.intent.action.VIEW"
+                android:data="https://www.tianditu.gov.cn"
+            />
         </Preference>
+    </PreferenceCategory>
+    <PreferenceCategory android:title="存储设置">
+        <Preference
+            android:key="folder_selector"
+            android:title="选择文件夹"
+            android:summary="点击选择导出位置"
+            android:icon="@drawable/folder"
+        />
+        <Preference
+            android:key="current_folder"
+            android:title="当前选择的文件夹"
+            android:summary="未选择"
+            android:enabled="false"
+            android:icon="@drawable/folder_special"
+        />
     </PreferenceCategory>
 </PreferenceScreen>

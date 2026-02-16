@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest
+    xmlns:tools="http://schemas.android.com/tools"
     xmlns:android="http://schemas.android.com/apk/res/android"
 >
     <!-- 定位权限（前台） -->
@@ -8,7 +9,8 @@
     <!-- 后台定位 -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <!-- 声明使用GPS硬件 -->
-    <uses-feature android:name="android.hardware.location.gps" android:required="true" />
+    <uses-feature android:name="android.hardware.location.gps"
+                  android:required="true" />
 
     <!-- 网络权限（用于加载天地图瓦片） -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -16,6 +18,10 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Wi-Fi状态权限：用于Wi-Fi定位辅助 -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <!-- 写入文件的权限-->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                     android:maxSdkVersion="32" tools:ignore="ScopedStorage"/>
 
     <application
         android:allowBackup="true"
@@ -27,7 +33,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Gnss"
     >
-
         <activity
             android:name=".GnssActivity"
             android:exported="true"
@@ -39,7 +44,7 @@
         </activity>
 
         <activity
-            android:name=".webmap.MapActivity"
+            android:name=".ui.MapFragment"
             android:screenOrientation="portrait"
         >  <!-- 锁定竖屏 -->
         </activity>
@@ -47,8 +52,20 @@
         <activity
             android:name=".SettingsActivity"
             android:label="设置"
-            android:parentActivityName=".webmap.MapActivity"
-        /> <!-- 关联到MapActivity -->
+            android:parentActivityName=".ui.MapFragment"
+        />
+
+        <service
+            android:name=".sql.Export"
+            android:foregroundServiceType="dataSync"
+            android:exported="false"
+        />
+
+        <!-- 允许 fastjson2 反射访问类属性 -->
+        <uses-library
+            android:name="org.apache.http.legacy"
+            android:required="false"
+        />
     </application>
 
 </manifest>

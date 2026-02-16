@@ -10,9 +10,11 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -37,16 +39,22 @@ import xuanniao.map.gnss.updateAttitude
 import java.io.IOException
 import java.lang.ref.WeakReference
 import java.util.Locale
+import com.alibaba.fastjson2.JSON
+import xuanniao.map.gnss.R
 
 class MapFragment : Fragment() {
     private val tag = "地图页面"
     private lateinit var activity: Activity
     private var _binding: FragmentMapBinding? = null
+    private var originalWebViewLayoutParams: ViewGroup.LayoutParams? = null
+    private var originalBtnExpandLayoutParams: ViewGroup.LayoutParams? = null
+    private var originalBtnLocateLayoutParams: ViewGroup.LayoutParams? = null
     private val binding get() = _binding!!
     val mapHandler: Handler = Handler(Looper.getMainLooper())
     private lateinit var gnssViewModel: GnssViewModel
     private var location: Location? = null
     private var isTripping = false
+    private var isFullScreen = false
 
     companion object {
         fun newInstance(mapId: String): MapFragment {
@@ -62,8 +70,19 @@ class MapFragment : Fragment() {
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?): View {
+
         _binding = FragmentMapBinding.inflate(
             inflater, container, false)
+        originalWebViewLayoutParams = binding.wvMap.layoutParams
+        originalBtnExpandLayoutParams = binding.btnExpand.layoutParams
+        originalBtnLocateLayoutParams = binding.btnLocate.layoutParams
+        // 恢复配置变化后的状态（如屏幕旋转）
+        savedInstanceState?.let {
+            isFullScreen = it.getBoolean("isFullScreen", false)
+            if (isFullScreen) {
+                switchToFullScreen()
+            }
+        }
         return binding.root
     }
 
@@ -97,6 +116,13 @@ class MapFragment : Fragment() {
             }
         }
         setupMapView()
+        binding.btnExpand.setOnClickListener {
+            if (isFullScreen) {
+                switchToNormal() // 还原到Fragment中
+            } else {
+                switchToFullScreen() // 扩展到全屏
+            }
+        }
     }
 
     fun setupMapView() {
@@ -104,6 +130,9 @@ class MapFragment : Fragment() {
         checkAndPromptForApiKey()
         setupWebView()
         loadLocalHtml()
+        binding.btnLocate.setOnClickListener {
+            centerMapOnLocation()
+        }
     }
 
     fun netCheck() {
@@ -141,7 +170,7 @@ class MapFragment : Fragment() {
 
     @SuppressLint("SetJavaScriptEnabled")
     fun setupWebView() {
-//        Log.d(tag, "页面开始加载……")
+        Log.d(tag, "页面开始加载……")
         val settings = binding.wvMap.settings
         settings.apply {
             javaScriptEnabled = true
@@ -149,6 +178,10 @@ class MapFragment : Fragment() {
             allowFileAccess = true
             // 允许混合内容（http/https），这对某些资源加载很重要
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+            // 自适应屏幕
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            cacheMode = WebSettings.LOAD_DEFAULT
         }
         // 设置WebChromeClient（如果需要处理弹窗、进度条等）
         binding.wvMap.webViewClient = MyWebViewClient()
@@ -165,6 +198,124 @@ class MapFragment : Fragment() {
                 Log.d(tag, "页面加载完成: $url")
             }
         }
+    }
+
+    /**
+     * 扩展WebView到整个屏幕
+     */
+    private fun switchToFullScreen() {
+        isFullScreen = true
+        // 1. 切换按钮图标（还原图标）
+        binding.btnExpand.setImageResource(R.drawable.shrink)
+
+        // 2. 获取Activity的根布局（DecorView），作为WebView的全屏父容器
+        val activity: Activity = requireActivity()
+        val decorView = activity.window.decorView as ViewGroup
+        val contentView = decorView.findViewById<ViewGroup>(android.R.id.content)
+
+        // 3. 从Fragment中移除WebView（保留加载状态）
+        (binding.wvMap.parent as ViewGroup).removeView(binding.wvMap)
+
+        // 4. 将WebView添加到Activity根布局，设置全屏参数
+        binding.wvMap.layoutParams = ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        contentView.addView(binding.wvMap)
+
+        // 5. 将扩展按钮也移到全屏层级（跟随WebView）
+        (binding.btnExpand.parent as ViewGroup).removeView(binding.btnExpand)
+        val btnExpandParams = FrameLayout.LayoutParams(
+            42.dpToPx(), 45.dpToPx()
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.END
+            bottomMargin = (-2).dpToPx()
+            rightMargin = 18.dpToPx()
+        }
+        contentView.addView(binding.btnExpand, btnExpandParams)
+
+        (binding.btnLocate.parent as ViewGroup).removeView(binding.btnLocate)
+        val btnLocateParams = FrameLayout.LayoutParams(
+            42.dpToPx(), 45.dpToPx()
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.END
+            bottomMargin = 85.dpToPx()
+            rightMargin = 18.dpToPx()
+        }
+        contentView.addView(binding.btnLocate, btnLocateParams)
+    }
+
+    /**
+     * 将WebView还原到Fragment中（部分屏幕）
+     */
+    private fun switchToNormal() {
+        isFullScreen = false
+        // 1. 切换按钮图标（扩展图标）
+        binding.btnExpand.setImageResource(R.drawable.expand)
+
+        // 2. 从Activity根布局移除WebView和按钮
+        val activity: Activity = requireActivity()
+        val decorView = activity.window.decorView as ViewGroup
+        val contentView = decorView.findViewById<ViewGroup>(android.R.id.content)
+        contentView.removeView(binding.wvMap)
+        contentView.removeView(binding.btnExpand)
+        contentView.removeView(binding.btnLocate)
+
+        binding.wvMap.layoutParams = originalWebViewLayoutParams
+        binding.root.addView(binding.wvMap)
+
+        binding.btnExpand.layoutParams = originalBtnExpandLayoutParams
+        binding.root.addView(binding.btnExpand)
+
+        binding.btnLocate.layoutParams = originalBtnLocateLayoutParams
+        binding.root.addView(binding.btnLocate)
+    }
+
+    /**
+     * 保存状态（防止屏幕旋转等配置变化丢失状态）
+     */
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("isFullScreen", isFullScreen)
+        // 保存WebView的加载状态（避免还原后重新加载）
+        binding.wvMap.saveState(outState)
+    }
+
+    /**
+     * 恢复WebView状态
+     */
+    override fun onViewStateRestored(savedInstanceState: Bundle?) {
+        super.onViewStateRestored(savedInstanceState)
+        savedInstanceState?.let { binding.wvMap.restoreState(it) }
+    }
+
+    /**
+     * 销毁时释放资源，避免内存泄漏
+     */
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // 如果WebView还在全屏状态，先移回Fragment再销毁
+        Log.d(tag, "onDestroyView启用")
+        if (isFullScreen) {
+            val activity = requireActivity()
+            val decorView = activity.window.decorView as ViewGroup
+            val contentView = decorView.findViewById<ViewGroup>(android.R.id.content)
+            contentView.removeView(binding.wvMap)
+            contentView.removeView(binding.btnExpand)
+        }
+        // 销毁WebView
+        binding.wvMap.stopLoading()
+        binding.wvMap.webViewClient = object : WebViewClient() {}
+        (binding.wvMap.parent as? ViewGroup)?.removeView(binding.wvMap)
+        binding.wvMap.destroy()
+    }
+
+    /**
+     * 扩展函数：dp转px（适配不同屏幕）
+     */
+    private fun Int.dpToPx(): Int {
+        val density = resources.displayMetrics.density
+        return (this * density).toInt()
     }
 
     // 一个专门用于向WebView传递密钥的方法
@@ -271,6 +422,16 @@ class MapFragment : Fragment() {
         }
     }
 
+    fun sendRecordToMap(recordArray: Array<DoubleArray>, bound: DoubleArray) {
+        Log.d(tag, "开始打开地图:${recordArray[0][0]}, $bound")
+        val recordJson = JSON.toJSONString(recordArray)
+        val boundJson = JSON.toJSONString(bound)
+        val jsCode = java.lang.String.format(Locale.US,
+            "javascript:if(typeof drawRecordTrack === 'function') {" +
+                    "drawRecordTrack($recordJson, $boundJson); }")
+        executeJavaScript(jsCode)
+    }
+
     // 地图居中到当前位置
     private fun centerMapOnLocation() {
         if (location != null) {
@@ -295,6 +456,7 @@ class MapFragment : Fragment() {
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d(tag, "onDestroy启用")
         mapHandler.removeCallbacksAndMessages(null)
     }
 }

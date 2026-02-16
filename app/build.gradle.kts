@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId = "xuanniao.map.gnss"
-        minSdk = 23
+        minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3"
+        versionCode = 4
+        versionName = "0.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -49,6 +49,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
     // Lifecycle观察者
     implementation("androidx.lifecycle:lifecycle-common-java8:2.7.0")
+    // 阿里的json工具
+    implementation("com.alibaba.fastjson2:fastjson2:2.0.61")
 
     implementation("androidx.core:core-ktx:1.10.1")
     implementation("androidx.appcompat:appcompat:1.6.1")

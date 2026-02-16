@@ -45,9 +45,6 @@
             <div id="coordinates">经纬度：--</div>
         </div>
 
-        <button class="icon-button" onclick="focusLocation()" style="position: absolute; bottom: 100px; right: 10px; z-index: 1000;">
-            <img src="file:///android_asset/leaflet/images/locate.png" width="30" alt="图片">
-        </button>
         <div id="map"></div>
 
         <!-- 使用本地Leaflet JS -->
@@ -67,6 +64,7 @@
             var maxLineNum = 1000;
             var isTracking;
             var busMarkers = [];
+            var recordLine = null;
             var tk = getEffectiveTiandituKey(); // 天地图密钥
 
             const arrowIcon = L.icon({
@@ -88,12 +86,15 @@
             window.onLocationUpdate = function(locationData) {
                 const lat = locationData.lat;
                 const lng = locationData.lng;
-                console.log("收到位置数据:", lat);
+//                console.log("收到位置数据:", lat);
                 const accuracy = locationData.accuracy || 50;
                 const bearing = locationData.bearing || 0;
                 newLatLng = [lat, lng];
                 updateLocation(newLatLng, accuracy, bearing);
-                if (isTracking) updateTrack(newLatLng);
+                if (isTracking) {
+                    updateTrack(newLatLng);
+                    if (recordLine == null) centerOnLocation(lat, lng);
+                }
                 lastPoint = newLatLng;
             };
 
@@ -121,6 +122,17 @@
                     polyline.setLatLngs([]);
                 }
             };
+
+            // 绘制历史轨迹
+            window.drawRecordTrack = function(recordArray, bound) {
+                if (recordLine != null) map.removeLayer(recordLine);
+                console.log('recordArray:' + recordArray.toString());
+                recordLine = L.polyline(recordArray, {color: 'green'}).addTo(map);
+                recordLine.addTo(map);
+                var centerLat = (bound[2] + bound[0]) / 2
+                var centerLon = (bound[3] + bound[1]) / 2
+                centerOnLocation(centerLat, centerLon)
+            }
 
             function initMap() {
                 // 河南省的边界范围（大致）
@@ -218,7 +230,7 @@
 
             // 更新当前轨迹
             function updateTrack(newLatLng) {
-                // 删除上一段轨迹
+                // 删除第一段跳变轨迹
                 if (polylineHistory.length > 0) {
                     var earliestPolyline = polylineHistory[0]
                     map.removeLayer(earliestPolyline);
@@ -232,9 +244,9 @@
                 polyline.addTo(map);
             }
 
-            // 聚焦当前位置
-            function focusLocation() {
-                map.setView(lastPoint, 18)
+            function centerOnLocation(lat, lon) {
+                var nowCenter = [lat, lon]
+                map.setView(nowCenter, 18)
             }
 
             /**

@@ -13,15 +13,15 @@
     <color name="blue_100">#FAFFFF</color>
     <color name="blue_300">#C1F8FF</color>
     <color name="blue_500">#78CDE6</color>
-    <color name="blue_700">#0077B6</color>
+    <color name="blue_700">#0066CC</color>
 
     <color name="yellow_300">#FFF6F2E1</color>
     <color name="yellow_500">#FFFACB7D</color>
-    <color name="yellow_700">#FFFF9700</color>
+    <color name="yellow_700">#FFFFC107</color>
 
     <color name="red_300">#FFC4C4</color>
     <color name="red_500">#FF8080</color>
-    <color name="red_700">#FF3E3E</color>
+    <color name="red_700">#CC0000</color>
 
     <color name="white">#FFFFFFFF</color>
     <color name="gray_100">#E6E6E6</color>
@@ -49,4 +49,5 @@
     <color name="textColor">@color/white</color>
     <color name="textColorPrimary">@color/gray_700</color>
     <color name="textColorSecondary">@color/gray_300</color>
+
 </resources>

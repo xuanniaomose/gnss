@@ -10,10 +10,9 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import xuanniao.map.gnss.databinding.FragmentDisplayBinding
 import xuanniao.map.gnss.GnssViewModel
+import java.util.Locale
 
 class DisplayFragment: Fragment() {
-    val tags: String = "展示页面"
-    private lateinit var activity: Activity
     private var _binding: FragmentDisplayBinding? = null
     private val binding get() = _binding!! // 非空断言，确保视图创建后使用
     private lateinit var gnssViewModel: GnssViewModel
@@ -42,10 +41,9 @@ class DisplayFragment: Fragment() {
         // 初始化ViewModel
         gnssViewModel = ViewModelProvider(requireActivity())[GnssViewModel::class.java]
         // 订阅数据（自动在主线程接收，生命周期安全）
-//        Log.d(tags, "开始观察")
         gnssViewModel.location.observe(viewLifecycleOwner) {location ->
-            binding.tvDisplay.text = location.speed.toString()
-//            Log.d(tags, "location: ${location.longitude}, ${location.latitude}")
+            binding.tvDisplay.text = String.format(
+                Locale.CHINA, "%.1f",location.speed)
         }
     }
 

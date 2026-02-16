@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 按下状态 -->
+    <item android:color="@android:color/black" android:state_pressed="true"/>
+    <!-- 禁用状态 -->
+    <item android:color="@android:color/darker_gray" android:state_enabled="false"/>
+    <!-- 默认状态（必须放在最后） -->
+    <item android:color="@android:color/white"/>
+</selector>
